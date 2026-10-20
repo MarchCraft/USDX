@@ -797,7 +797,7 @@ begin
     end;
   end;
   //Log.LogInfo('Unknown texture type: "' + TypeStr + '". Using default texture type "'
-  //    + TextureTypeToStr(Default) + '"', 'UTexture.ParseTextureType');
+  //    + TextureTypeToStr(Default) + '"', 'URenderer.ParseTextureType');
   Result := Default;
 end;
 

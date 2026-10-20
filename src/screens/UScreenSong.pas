@@ -2219,12 +2219,6 @@ begin
     smChessboard: SetChessboardScrollRefresh;
     else SetListScrollRefresh;
   end;
-  {if Button[Interaction].Texture.TexNum > 0 then
-  begin
-    glDeleteTextures(1, PGLuint(@Button[Interaction].Texture.TexNum));
-    Button[Interaction].Texture.TexNum := 0;
-  end;
-  Button[Interaction].Texture := Texture.LoadTexture(Button[Interaction].Texture.Name);}
   //basisbit todo here
 end;
 

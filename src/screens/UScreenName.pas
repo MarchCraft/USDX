@@ -45,7 +45,6 @@ uses
   UScreenSingController,
   UScreenHighScores,
   UThemes,
-  UTexture,
   SysUtils,
   sdl2,
   md5;

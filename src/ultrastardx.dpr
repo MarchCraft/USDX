@@ -197,7 +197,6 @@ uses
   USongs            in 'base\USongs.pas',
   UIni              in 'base\UIni.pas',
   UImage            in 'base\UImage.pas',
-  UTexture          in 'base\UTexture.pas',
   ULyrics           in 'base\ULyrics.pas',
   UEditorLyrics     in 'base\UEditorLyrics.pas',
   USkins            in 'base\USkins.pas',
