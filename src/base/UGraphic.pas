@@ -751,7 +751,7 @@ NoDoubledResolution:
 
   if (screen = nil) then
   begin
-    Log.LogCritical('Creating window failed', 'SDL_SetVideoMode');
+    Log.LogCritical('Creating window failed: ' + SDL_GetError(), 'SDL_SetVideoMode');
   end
   else
   begin
