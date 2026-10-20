@@ -37,8 +37,8 @@ uses
   UCommon,
   UIni,
   UPlayerLayout,
-  UThemes,
-  UTexture;
+  URenderer,
+  UThemes;
 
 //////////////////////////////////////////////////////////////
 //                        ATTENTION:                        //

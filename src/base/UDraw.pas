@@ -799,6 +799,8 @@ var
   GlowPadX:       real;
   GlowExtraW:     real;
   GlowExtraH:     real;
+  A:               real;
+  Texture:         TTexture;
 begin
   if (ScreenSing.settings.NotesVisible[PlayerIndex]) then
   begin
@@ -1326,8 +1328,6 @@ begin
     SingDrawLine(LaneLeft, LineTop, LaneRight, TrackIndex, PlayerIndex, LineSpacing);
     SingDrawPlayerLine(LaneLeft, LineTop, LaneWidth, TrackIndex, PlayerIndex, LineSpacing);
   end;
-  glDisable(GL_BLEND);
-  glDisable(GL_TEXTURE_2D);
 end;
 
 procedure SingDrawJukebox;

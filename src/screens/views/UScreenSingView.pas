@@ -47,6 +47,7 @@ uses
   UMenu,
   UMusic,
   UPlayerLayout,
+  URenderer,
   USingScores,
   USongs,
   UThemes,
@@ -505,12 +506,6 @@ begin
     ScreenSing.PlayerDuetNames[I] := ScreenSing.PlayerNames[I];
   end;
 
-  // Sing Bars
-  // P1-6
-  for I := 1 to UIni.IMaxPlayerCount do
-  begin
-    Color := RGBFloatToInt(Col[I].R, Col[I].G, Col[I].B);
-
   StaticPausePopup := ScreenSing.AddStatic(Theme.Sing.PausePopUp);
 
   // <note> pausepopup is not visible at the beginning </note>
@@ -660,13 +655,6 @@ begin
 
   // swap static textures to current screen ones
   SwapToScreen(ScreenAct);
-  UpdatePlayerNameVisibility;
-
-  if (CurrentSong.isDuet) and (PlayersPlay = 4) then
-  begin
-    for I := 0 to High(ColPlayer) do
-      ColPlayer[I] := GetPlayerColor(Ini.PlayerColor[I]);
-  end;
 
   // draw background picture (if any, and if no visualizations)
   // when we don't check for visualizations the visualizations would

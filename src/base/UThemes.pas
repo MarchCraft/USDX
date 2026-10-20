@@ -1665,29 +1665,6 @@ begin
   ScoreTheme.StaticLevelRound[TargetSlotIndex] := TransformScoreStatic(Template.StaticLevelRound, SourceBounds, SlotRect);
 end;
 
-//-----------
-//Helper procs to use TRGB in Opengl ...maybe this should be somewhere else
-//-----------
-procedure glColorRGB(Color: TRGB);  overload;
-begin
-  glColor3f(Color.R, Color.G, Color.B);
-end;
-
-procedure glColorRGB(Color: TRGB; Alpha: real);  overload;
-begin
-  glColor4f(Color.R, Color.G, Color.B, Alpha);
-end;
-
-procedure glColorRGB(Color: TRGBA); overload;
-begin
-  glColor4f(Color.R, Color.G, Color.B, Color.A);
-end;
-
-procedure glColorRGB(Color: TRGBA; Alpha: real); overload;
-begin
-  glColor4f(Color.R, Color.G, Color.B, Min(Color.A, Alpha));
-end;
-
 constructor TTheme.Create;
 begin
   inherited Create();
@@ -2207,8 +2184,8 @@ begin
       // Score
       ThemeScoreLoadData;
 
-      // Top5
-      ThemeLoadBasic(Top5, 'Top5');
+      // High scores
+      ThemeLoadHighScores;
 
       // Options
       ThemeLoadBasic(Options, 'Options');
