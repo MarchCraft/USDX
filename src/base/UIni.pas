@@ -39,7 +39,7 @@ uses
   Classes,
   IniFiles,
   SysUtils,
-  TextGL,
+  UText,
   UCommon,
   ULog,
   UTextEncoding,
@@ -77,6 +77,9 @@ const
   LATENCY_AUTODETECT = -1; // for field Latency
   DEFAULT_RESOLUTION = '800x600';
   DEFAULT_THEME = 'Modern';
+  DEFAULT_HIGH_SCORE_SCREEN_ENTRIES = 5;
+  MIN_HIGH_SCORE_SCREEN_ENTRIES = 5;
+  MAX_HIGH_SCORE_SCREEN_ENTRIES = 20;
   // TODO: the menu options only go up to 6, but there are internals that still go up to 12
   //  IMaxPlayerCount is untouched because lowering (or raising) it causes very strange behaviour, such as:
   //  * the game starts in a completely different language than the config specifies
@@ -99,7 +102,7 @@ type
 
   TVisualizerOption      = (voOff, voWhenNoVideo, voWhenNoVideoAndImage, voOn);
   TBackgroundMusicOption = (bmoOff, bmoOn);
-  TSongMenuMode = ( smRoulette, smChessboard, smCarousel, smSlotMachine, smSlide, smList, smMosaic);
+  TSongMenuMode = ( smRoulette, smChessboard, smList);
 
   TIni = class
     private
@@ -182,8 +185,12 @@ type
       ThresholdIndex: integer;
       AudioOutputBufferSizeIndex: integer;
       VoicePassthrough: integer;
-      SoundFont:      string;
       ReplayGain:     integer;
+
+      AudioVolume:    integer;
+      VocalsVolume:   integer;
+      SfxVolume:      integer;
+      BackgroundMusicVolume: integer;
 
       SyncTo: integer;
 
@@ -201,6 +208,7 @@ type
       Theme:          integer;
       SkinNo:         integer;
       Color:          integer;
+      HighScoreScreenEntries: integer;
       BackgroundMusicOption: integer;
 
       // Record
@@ -212,9 +220,9 @@ type
       ScreenFade:     integer;
       AskBeforeDel:   integer;
       OnSongClick:    integer;
-      LineBonus:      integer;
       PartyPopup:     integer;
       SingScores:     integer;
+      DuetScores:     integer;
       TopScores:      integer;
       SingTimebarMode:       integer;
       JukeboxTimebarMode:    integer;
@@ -286,19 +294,20 @@ type
 
       // default encoding for texts (lyrics, song-name, ...)
       DefaultEncoding: TEncoding;
+      LastReadNames: LongInt;
 
       procedure Load();
       procedure Save();
       procedure SaveNames;
+      function ReloadNames: boolean;
       procedure SaveLevel;
       procedure SavePlayerColors;
       procedure SavePlayerAvatars;
       procedure SavePlayerLevels;
       procedure SaveTeamColors;
       procedure SaveShowWebScore;
+      procedure SaveHighScoreScreenEntries;
       procedure SaveJukeboxSongMenu;
-
-      procedure SaveSoundFont(Name: string);
       procedure SaveWebcamSettings();
       procedure SaveNumberOfPlayers;
       procedure SaveSingTimebarMode;
@@ -346,10 +355,10 @@ const
 
 const
   ISorting:      array[0..10] of UTF8String = ('Edition', 'Genre', 'Language', 'Folder', 'Title', 'Artist', 'Artist2', 'Year', 'Year Reversed', 'Decade', 'Playlist');
-  ISongMenuMode: array[0..6] of UTF8String = ('Roulette', 'Chessboard', 'Carousel', 'Slot Machine', 'Slide', 'List', 'Mosaic');
+  ISongMenuMode: array[0..2] of UTF8String = ('Roulette', 'Chessboard', 'List');
 
 type
-  TSortingType = (sEdition, sGenre, sLanguage, sFolder, sTitle, sArtist, sArtist2, sYear, sYearReversed, sDecade, sPlaylist);
+  TSortingType = (sEdition, sGenre, sLanguage, sFolder, sTitle, sArtist, sArtist2, sYear, sYearReversed, sDecade);
 
 const
   IShowScores:       array[0..2] of UTF8String  = ('Off', 'When exists', 'On');
@@ -442,13 +451,13 @@ const
   IScreenFade:    array[0..1] of UTF8String = ('Off', 'On');
   IAskbeforeDel:  array[0..1] of UTF8String = ('Off', 'On');
   ISingScores:    array[0..1] of UTF8String = ('Off', 'On');
-  ITopScores:    array[0..1] of UTF8String = ('All', 'Player');
+  IDuetScores:    array[0..1] of UTF8String = ('Off', 'On');
+  ITopScores:     array[0..1] of UTF8String = ('All', 'Player');
   IOnSongClick:   array[0..2] of UTF8String = ('Sing', 'Select Players', 'Open Menu');
   sStartSing = 0;
   sSelectPlayer = 1;
   sOpenMenu = 2;
 
-  ILineBonus:     array[0..1] of UTF8String = ('Off', 'On');
   IPartyPopup:    array[0..1] of UTF8String = ('Off', 'On');
 
   IJoypad:        array[0..1] of UTF8String = ('Off', 'On');
@@ -478,7 +487,7 @@ var
   IDifficultyTranslated:       array[0..2] of UTF8String  = ('Easy', 'Medium', 'Hard');
   ITabsTranslated:             array[0..1] of UTF8String  = ('Off', 'On');
 
-  ISongMenuTranslated:         array[0..6] of UTF8String  = ('Roulette', 'Chessboard', 'Carousel', 'Slot Machine', 'Slide', 'List', 'Mosaic');
+  ISongMenuTranslated:         array[0..2] of UTF8String  = ('Roulette', 'Chessboard', 'List');
 
   //ISortingTranslated:          array[0..9] of UTF8String  = ('Edition', 'Genre', 'Language', 'Folder', 'Title', 'Artist', 'Artist2', 'Year', 'Decade', 'Playlist');
   ISortingTranslated:          array[0..9] of UTF8String  = ('Edition', 'Genre', 'Language', 'Folder', 'Title', 'Artist', 'Artist2', 'Year', 'Year Reversed', 'Decade');
@@ -545,9 +554,9 @@ var
   IScreenFadeTranslated:       array[0..1] of UTF8String = ('Off', 'On');
   IAskbeforeDelTranslated:     array[0..1] of UTF8String = ('Off', 'On');
   IOnSongClickTranslated:      array[0..2] of UTF8String = ('Sing', 'Select Players', 'Open Menu');
-  ILineBonusTranslated:        array[0..1] of UTF8String = ('Off', 'On');
   IPartyPopupTranslated:       array[0..1] of UTF8String = ('Off', 'On');
   ISingScoresTranslated:       array[0..1] of UTF8String = ('Off', 'On');
+  IDuetScoresTranslated:       array[0..1] of UTF8String = ('Off', 'On');
   ITopScoresTranslated:        array[0..1] of UTF8String = ('All', 'Player');
 
   IJoypadTranslated:           array[0..1] of UTF8String = ('Off', 'On');
@@ -601,8 +610,62 @@ uses
   UPathUtils,
   UUnicodeUtils;
 
+type
+  TSafeIniFile = class(TIniFile)
+    private
+      FLogSource: string;
+      FWriteFailed: boolean;
+      procedure LogWriteError(const E: Exception);
+    public
+      constructor Create(const FileName, LogSource: string);
+      procedure WriteString(const Section, Ident, Value: string); override;
+      procedure DeleteKey(const Section, Ident: string); override;
+  end;
+
 const
   IGNORE_INDEX = -1;
+
+constructor TSafeIniFile.Create(const FileName, LogSource: string);
+begin
+  inherited Create(FileName);
+  FLogSource := LogSource;
+  FWriteFailed := false;
+end;
+
+procedure TSafeIniFile.LogWriteError(const E: Exception);
+begin
+  if FWriteFailed then
+    Exit;
+
+  FWriteFailed := true;
+  Log.LogError('Could not write to config-file: ' + E.Message, FLogSource);
+end;
+
+procedure TSafeIniFile.WriteString(const Section, Ident, Value: string);
+begin
+  if FWriteFailed then
+    Exit;
+
+  try
+    inherited WriteString(Section, Ident, Value);
+  except
+    on E: Exception do
+      LogWriteError(E);
+  end;
+end;
+
+procedure TSafeIniFile.DeleteKey(const Section, Ident: string);
+begin
+  if FWriteFailed then
+    Exit;
+
+  try
+    inherited DeleteKey(Section, Ident);
+  except
+    on E: Exception do
+      LogWriteError(E);
+  end;
+end;
 
 (**
  * Translate and set the values of options, which need translation.
@@ -627,11 +690,7 @@ begin
 
   ISongMenuTranslated[0]              := ULanguage.Language.Translate('OPTION_VALUE_ROULETTE');
   ISongMenuTranslated[1]              := ULanguage.Language.Translate('OPTION_VALUE_CHESSBOARD');
-  ISongMenuTranslated[2]              := ULanguage.Language.Translate('OPTION_VALUE_CAROUSEL');
-  ISongMenuTranslated[3]              := ULanguage.Language.Translate('OPTION_VALUE_SLOTMACHINE');
-  ISongMenuTranslated[4]              := ULanguage.Language.Translate('OPTION_VALUE_SLIDE');
-  ISongMenuTranslated[5]              := ULanguage.Language.Translate('OPTION_VALUE_LIST');
-  ISongMenuTranslated[6]              := ULanguage.Language.Translate('OPTION_VALUE_MOSAIC');
+  ISongMenuTranslated[2]              := ULanguage.Language.Translate('OPTION_VALUE_LIST');
 
   ISortingTranslated[0]               := ULanguage.Language.Translate('OPTION_VALUE_EDITION');
   ISortingTranslated[1]               := ULanguage.Language.Translate('OPTION_VALUE_GENRE');
@@ -829,14 +888,14 @@ begin
   IOnSongClickTranslated[1]           := ULanguage.Language.Translate('OPTION_VALUE_SELECT_PLAYERS');
   IOnSongClickTranslated[2]           := ULanguage.Language.Translate('OPTION_VALUE_OPEN_MENU');
 
-  ILineBonusTranslated[0]             := ULanguage.Language.Translate('OPTION_VALUE_OFF');
-  ILineBonusTranslated[1]             := ULanguage.Language.Translate('OPTION_VALUE_ON');
-
   IPartyPopupTranslated[0]            := ULanguage.Language.Translate('OPTION_VALUE_OFF');
   IPartyPopupTranslated[1]            := ULanguage.Language.Translate('OPTION_VALUE_ON');
 
   ISingScoresTranslated[0]          := ULanguage.Language.Translate('OPTION_VALUE_OFF');
   ISingScoresTranslated[1]          := ULanguage.Language.Translate('OPTION_VALUE_ON');
+
+  IDuetScoresTranslated[0]          := ULanguage.Language.Translate('OPTION_VALUE_OFF');
+  IDuetScoresTranslated[1]          := ULanguage.Language.Translate('OPTION_VALUE_ON');
 
   ITopScoresTranslated[0]          := ULanguage.Language.Translate('OPTION_VALUE_ALL');
   ITopScoresTranslated[1]          := ULanguage.Language.Translate('OPTION_VALUE_PLAYER');
@@ -1077,6 +1136,7 @@ var
   DeviceIndex:  integer;
   ChannelCount: integer;
   ChannelIndex: integer;
+  PlayerNumber: integer;
   RecordKeys:   TStringList;
   i:            integer;
 begin
@@ -1119,8 +1179,11 @@ begin
       // or set non-configured channels to no player (=0).
       for ChannelIndex := 0 to High(DeviceCfg.ChannelToPlayerMap) do
       begin
-        DeviceCfg.ChannelToPlayerMap[ChannelIndex] :=
+        PlayerNumber :=
           IniFile.ReadInteger('Record', Format('Channel%d[%d]', [ChannelIndex+1, DeviceIndex]), CHANNEL_OFF);
+        if (PlayerNumber < 1) or (PlayerNumber > IMaxPlayerCount) then
+          PlayerNumber := CHANNEL_OFF;
+        DeviceCfg.ChannelToPlayerMap[ChannelIndex] := PlayerNumber;
       end;
     end;
   end;
@@ -1153,7 +1216,7 @@ begin
     for ChannelIndex := 0 to High(InputDeviceConfig[DeviceIndex].ChannelToPlayerMap) do
     begin
       PlayerNumber := InputDeviceConfig[DeviceIndex].ChannelToPlayerMap[ChannelIndex];
-      if PlayerNumber > 0 then
+      if (PlayerNumber >= 1) and (PlayerNumber <= IMaxPlayerCount) then
       begin
         IniFile.WriteInteger('Record',
             Format('Channel%d[%d]', [ChannelIndex+1, DeviceIndex+1]),
@@ -1186,7 +1249,7 @@ begin
   begin
     if (Pos('SONGDIR', UpperCase(PathStrings[I])) = 1) then
     begin
-      AddSongPath(Path(IniFile.ReadString('Directories', PathStrings[I], '')));
+      AddSongPath(Path(IniFile.ReadString('Directories', PathStrings[I], '')), false);
     end;
   end;
 
@@ -1392,6 +1455,7 @@ function TIni.InitializePianoKeyArray(const Values: array of Cardinal): TPianoKe
 var
   i: Integer;
 begin
+  Result := nil;
   SetLength(Result, Length(Values));
   for i := Low(Values) to High(Values) do
     Result[i] := Values[i];
@@ -1408,17 +1472,51 @@ var
   KeysHigh: string;
   ReadPianoKeysLow: TPianoKeyArray;
   ReadPianoKeysHigh: TPianoKeyArray;
+
+  function ReadVolumePercent(const Section, Key: string; DefaultValue: integer): integer;
+  var
+    RawValue: UTF8String;
+    NumericValue: integer;
+    Parsed: boolean;
+    OldIndex: integer;
+  begin
+    Result := DefaultValue;
+
+    if not IniFile.ValueExists(Section, Key) then
+      Exit;
+
+    RawValue := Trim(IniFile.ReadString(Section, Key, IntToStr(DefaultValue)));
+    Parsed := TryStrToInt(RawValue, NumericValue);
+    if (not Parsed) and (Length(RawValue) > 0) and (RawValue[Length(RawValue)] = '%') then
+    begin
+      Delete(RawValue, Length(RawValue), 1);
+      Parsed := TryStrToInt(RawValue, NumericValue);
+    end;
+
+    if Parsed then
+      Result := NumericValue
+    else
+    begin
+      OldIndex := ReadArrayIndex(IPreviewVolume, IniFile, Section, Key, -1);
+      if OldIndex >= 0 then
+        Result := Round(IPreviewVolumeVals[OldIndex] * 100)
+      else
+        Result := DefaultValue;
+    end;
+
+    if Result < 0 then
+      Result := 0
+    else if Result > 100 then
+      Result := 100;
+  end;
 begin
   LoadFontFamilyNames;
   ILyricsFont := FontFamilyNames;
-  GamePath := Platform.GetGameUserPath;
-
-  Log.LogStatus( 'GamePath : ' +GamePath.ToNative , '' );
 
   if (Params.ConfigFile.IsSet) then
     FileName := Params.ConfigFile
   else
-    FileName := GamePath.Append('config.ini');
+    FileName := Platform.GetGameUserPath().Append('config.ini');
 
   Log.LogStatus('Using config : ' + FileName.ToNative, 'Ini');
   IniFile := TMemIniFile.Create(FileName.ToNative);
@@ -1429,10 +1527,12 @@ begin
     Name[I] := IniFile.ReadString('Name', 'P'+IntToStr(I+1), 'Player'+IntToStr(I+1));
     // Color Player
     PlayerColor[I] := IniFile.ReadInteger('PlayerColor', 'P'+IntToStr(I+1), DefaultPlayerColors[I]);
+    // Initialize session sing colors from the saved player colors so they are usable before the first song
+    SingColor[I] := PlayerColor[I];
     // Avatar Player
     PlayerAvatar[I] := IniFile.ReadString('PlayerAvatar', 'P'+IntToStr(I+1), '');
     // Level Player
-    PlayerLevel[I] := IniFile.ReadInteger('PlayerLevel', 'P'+IntToStr(I+1), 0);
+    PlayerLevel[I] := IniFile.ReadInteger('PlayerLevel', 'P'+IntToStr(I+1), 1);
   end;
 
   // Color Team
@@ -1449,7 +1549,7 @@ begin
   Players := ReadArrayIndex(IPlayers, IniFile, 'Game', 'Players', 0);
 
   // Difficulty
-  Difficulty := ReadArrayIndex(IDifficulty, IniFile, 'Game', 'Difficulty', IGNORE_INDEX, 'Easy');
+  Difficulty := ReadArrayIndex(IDifficulty, IniFile, 'Game', 'Difficulty', IGNORE_INDEX, 'Medium');
 
   // Language
   Language := ReadArrayIndex(ILanguage, IniFile, 'Game', 'Language', IGNORE_INDEX, 'English');
@@ -1480,9 +1580,9 @@ begin
   DataBase.AddWebsite;
 
   // Webs Scores Path
-  WebScoresPath := Path(IniFile.ReadString('Directories', 'WebScoresDir', WebsitePath.ToNative));
+  WebScoresPath := Path(IniFile.ReadString('Directories', 'WebScoresDir', IPath(WebsitePaths[0]).ToNative));
   if not(DirectoryExists(WebScoresPath.ToNative)) then
-    WebScoresPath :=  WebsitePath;
+    WebScoresPath :=  WebsitePaths[0] as IPath;
 
   // ShowWebScore
   if (Length(DllMan.Websites) > 0) then
@@ -1537,8 +1637,11 @@ begin
   // AudioOutputBufferSize
   AudioOutputBufferSizeIndex := ReadArrayIndex(IAudioOutputBufferSize, IniFile, 'Sound', 'AudioOutputBufferSize', 0);
 
-  //Preview Volume
-  PreviewVolume := ReadArrayIndex(IPreviewVolume, IniFile, 'Sound', 'PreviewVolume', 5);
+  AudioVolume  := ReadVolumePercent('Sound', 'AudioVolume', 100);
+  VocalsVolume := ReadVolumePercent('Sound', 'VocalsVolume', 100);
+  SfxVolume    := ReadVolumePercent('Sound', 'SfxVolume', 100);
+  PreviewVolume := ReadVolumePercent('Sound', 'PreviewVolume', 30);
+  BackgroundMusicVolume := ReadVolumePercent('Sound', 'BackgroundMusicVolume', 40);
 
   // ReplayGain
   ReplayGain := ReadArrayIndex(IReplayGain, IniFile, 'Sound', 'ReplayGain', 0);
@@ -1548,8 +1651,6 @@ begin
 
   //AudioRepeat aka VoicePassthrough
   VoicePassthrough := ReadArrayIndex(IVoicePassthrough, IniFile, 'Sound', 'VoicePassthrough', 0);
-  
-  SoundFont := IniFile.ReadString('Sound', 'SoundFont', '');
 
   // Lyrics Font
   LyricsFont := ReadArrayIndex(ILyricsFont, IniFile, 'Lyrics', 'LyricsFont', 0);
@@ -1600,17 +1701,25 @@ begin
   // OnSongClick
   OnSongClick := ReadArrayIndex(IOnSongClick, IniFile, 'Advanced', 'OnSongClick', IGNORE_INDEX, 'Sing');
 
-  // Linebonus
-  LineBonus := ReadArrayIndex(ILineBonus, IniFile, 'Advanced', 'LineBonus', 1);
-
   // PartyPopup
   PartyPopup := ReadArrayIndex(IPartyPopup, IniFile, 'Advanced', 'PartyPopup', IGNORE_INDEX, 'On');
 
   // SingScores
   SingScores := ReadArrayIndex(ISingScores, IniFile, 'Advanced', 'SingScores', IGNORE_INDEX, 'On');
 
+  // DuetScores
+  DuetScores := ReadArrayIndex(IDuetScores, IniFile, 'Advanced', 'DuetScores', IGNORE_INDEX, 'On');
+
   // TopScores
   TopScores := ReadArrayIndex(ITopScores, IniFile, 'Advanced', 'TopScores', IGNORE_INDEX, 'Player');
+
+  // Last list length selected on the high-score screen
+  HighScoreScreenEntries := IniFile.ReadInteger(
+    'Advanced', 'HighScoreScreenEntries', DEFAULT_HIGH_SCORE_SCREEN_ENTRIES);
+  if (HighScoreScreenEntries < MIN_HIGH_SCORE_SCREEN_ENTRIES) then
+    HighScoreScreenEntries := MIN_HIGH_SCORE_SCREEN_ENTRIES
+  else if (HighScoreScreenEntries > MAX_HIGH_SCORE_SCREEN_ENTRIES) then
+    HighScoreScreenEntries := MAX_HIGH_SCORE_SCREEN_ENTRIES;
 
   // SyncTo
   SyncTo := ReadArrayIndex(ISyncTo, IniFile, 'Advanced', 'SyncTo', Ord(stMusic));
@@ -1637,7 +1746,7 @@ begin
   if (WebCamResolution = -1) then
     WebcamResolution := 2;
   WebCamFPS := ReadArrayIndex(IWebcamFPS, IniFile, 'Webcam', 'FPS', 4);
-  WebCamFlip := ReadArrayIndex(IWebcamFlipTranslated, IniFile, 'Webcam', 'Flip', IGNORE_INDEX, 'On');
+  WebCamFlip := ReadArrayIndex(IWebcamFlip, IniFile, 'Webcam', 'Flip', IGNORE_INDEX, 'On');
   WebCamBrightness := ReadArrayIndex(IWebcamBrightness, IniFile, 'Webcam', 'Brightness', IGNORE_INDEX, '0');
   WebCamSaturation := ReadArrayIndex(IWebcamSaturation, IniFile, 'Webcam', 'Saturation', IGNORE_INDEX, '0');
   WebCamHue := ReadArrayIndex(IWebcamHue, IniFile, 'Webcam', 'Hue', IGNORE_INDEX, '0');
@@ -1763,19 +1872,12 @@ procedure TIni.Save;
 var
   IniFile: TIniFile;
   HexColor: string;
-  I: integer;
   C: TRGB;
 begin
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.Save');
+
   try
   begin
-    if (Filename.IsFile and Filename.IsReadOnly) then
-    begin
-      Log.LogError('Config-file is read-only', 'TIni.Save');
-      Exit;
-    end;
-
-    IniFile := TIniFile.Create(Filename.ToNative);
-
     // Players
     IniFile.WriteString('Game', 'Players', IPlayers[Players]);
 
@@ -1865,8 +1967,12 @@ begin
     // Background music
     IniFile.WriteString('Sound', 'BackgroundMusic', IBackgroundMusic[BackgroundMusicOption]);
 
-    // Song Preview
-    IniFile.WriteString('Sound', 'PreviewVolume', IPreviewVolume[PreviewVolume]);
+    // Volume Settings
+    IniFile.WriteInteger('Sound', 'AudioVolume', AudioVolume);
+    IniFile.WriteInteger('Sound', 'VocalsVolume', VocalsVolume);
+    IniFile.WriteInteger('Sound', 'SfxVolume', SfxVolume);
+    IniFile.WriteInteger('Sound', 'BackgroundMusicVolume', BackgroundMusicVolume);
+    IniFile.WriteInteger('Sound', 'PreviewVolume', PreviewVolume);
 
     // PreviewFading
     IniFile.WriteString('Sound', 'PreviewFading', IPreviewFading[PreviewFading]);
@@ -1918,17 +2024,20 @@ begin
     //OnSongClick
     IniFile.WriteString('Advanced', 'OnSongClick', IOnSongClick[OnSongClick]);
 
-    //Line Bonus
-    IniFile.WriteString('Advanced', 'LineBonus', ILineBonus[LineBonus]);
-
     //Party Popup
     IniFile.WriteString('Advanced', 'PartyPopup', IPartyPopup[PartyPopup]);
 
     //SingScores
     IniFile.WriteString('Advanced', 'SingScores', ISingScores[SingScores]);
 
+    //DuetScores
+    IniFile.WriteString('Advanced', 'DuetScores', IDuetScores[DuetScores]);
+
     //TopScores
     IniFile.WriteString('Advanced', 'TopScores', ITopScores[TopScores]);
+
+    // Last list length selected on the high-score screen
+    IniFile.WriteInteger('Advanced', 'HighScoreScreenEntries', HighScoreScreenEntries);
 
     //SyncTo
     IniFile.WriteString('Advanced', 'SyncTo', ISyncTo[SyncTo]);
@@ -2021,14 +2130,9 @@ begin
 
     IniFile.WriteString('KeyBindings', 'PianoKeysLow', MergeIntArrayToString(PianoKeysLow));
     IniFile.WriteString('KeyBindings', 'PianoKeysHigh', MergeIntArrayToString(PianoKeysHigh));
-
+  end;
+  finally
     IniFile.Free;
-
-  end
-  except
-    On e :Exception do begin
-      Log.LogWarn('Saving InputDeviceConfig failed: ' + e.Message, 'UIni.Save');
-    end;
   end;
 end;
 
@@ -2037,10 +2141,8 @@ var
   IniFile: TIniFile;
   I:       integer;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveNames');
+  try
     //Name Templates for Names Mod
     for I := 0 to High(Name) do
       IniFile.WriteString('Name', 'P' + IntToStr(I+1), Name[I]);
@@ -2048,22 +2150,48 @@ begin
       IniFile.WriteString('NameTeam', 'T' + IntToStr(I+1), NameTeam[I]);
     for I := 0 to High(NameTemplate) do
       IniFile.WriteString('NameTemplate', 'Name' + IntToStr(I+1), NameTemplate[I]);
-
+  finally
     IniFile.Free;
   end;
 end;
+
+
+function TIni.ReloadNames: boolean;
+var
+  IniFile: TIniFile;
+  I:       integer;
+begin
+  if not FileExists(Filename.ToNative) or (FileAge(Filename.ToNative) <= LastReadNames) then
+  begin
+    Result := false;
+    Exit;
+  end;
+  LastReadNames := FileAge(Filename.ToNative);
+
+  IniFile := TIniFile.Create(Filename.ToNative);
+
+  //Name Templates for Names Mod
+  for I := 0 to High(Name) do
+    Name[I] := IniFile.ReadString('Name', 'P'+IntToStr(I+1), 'Player'+IntToStr(I+1));
+
+  // Players
+  Players := ReadArrayIndex(IPlayers, IniFile, 'Game', 'Players', 0);
+
+  IniFile.Free;
+
+  Result := true;
+end;
+
 
 procedure TIni.SaveLevel;
 var
   IniFile: TIniFile;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveLevel');
+  try
     // Difficulty
     IniFile.WriteString('Game', 'Difficulty', IDifficulty[Difficulty]);
-
+  finally
     IniFile.Free;
   end;
 end;
@@ -2072,12 +2200,10 @@ procedure TIni.SaveJukeboxSongMenu;
 var
   IniFile: TIniFile;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveJukeboxSongMenu');
+  try
     IniFile.WriteString('Jukebox', 'SongMenu', IJukeboxSongMenu[JukeboxSongMenu]);
-
+  finally
     IniFile.Free;
   end;
 end;
@@ -2087,13 +2213,24 @@ procedure TIni.SaveShowWebScore;
 var
   IniFile: TIniFile;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveShowWebScore');
+  try
     // ShowWebScore
     IniFile.WriteString('Game', 'ShowWebScore', DllMan.Websites[ShowWebScore].Name);
+  finally
+    IniFile.Free;
+  end;
+end;
 
+
+procedure TIni.SaveHighScoreScreenEntries;
+var
+  IniFile: TIniFile;
+begin
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveHighScoreScreenEntries');
+  try
+    IniFile.WriteInteger('Advanced', 'HighScoreScreenEntries', HighScoreScreenEntries);
+  finally
     IniFile.Free;
   end;
 end;
@@ -2105,14 +2242,12 @@ var
   IniFile: TIniFile;
   I: integer;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SavePlayerColors');
+  try
     //Colors for Names Mod
     for I := 1 to IMaxPlayerCount do
       IniFile.WriteString('PlayerColor', 'P' + IntToStr(I), IntToStr(PlayerColor[I-1]));
-
+  finally
     IniFile.Free;
   end;
 end;
@@ -2122,14 +2257,12 @@ var
   IniFile: TIniFile;
   I: integer;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SavePlayerAvatars');
+  try
     //Colors for Names Mod
     for I := 1 to IMaxPlayerCount do
       IniFile.WriteString('PlayerAvatar', 'P' + IntToStr(I), PlayerAvatar[I-1]);
-
+  finally
     IniFile.Free;
   end;
 end;
@@ -2139,13 +2272,11 @@ var
   IniFile: TIniFile;
   I: integer;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SavePlayerLevels');
+  try
     for I := 1 to IMaxPlayerCount do
       IniFile.WriteInteger('PlayerLevel', 'P' + IntToStr(I), PlayerLevel[I-1]);
-
+  finally
     IniFile.Free;
   end;
 end;
@@ -2155,29 +2286,12 @@ var
   IniFile: TIniFile;
   I: integer;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveTeamColors');
+  try
     //Colors for Names Mod
     for I := 1 to 3 do
       IniFile.WriteString('TeamColor', 'T' + IntToStr(I), IntToStr(TeamColor[I-1]));
-
-    IniFile.Free;
-  end;
-end;
-
-procedure TIni.SaveSoundFont(Name: string);
-var
-  IniFile: TIniFile;
-  I: integer;
-begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
-    IniFile.WriteString('Sound', 'SoundFont', Name);
-
+  finally
     IniFile.Free;
   end;
 end;
@@ -2186,10 +2300,8 @@ procedure TIni.SaveWebcamSettings;
 var
   IniFile: TIniFile;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveWebcamSettings');
+  try
     // WebCam
     IniFile.WriteInteger('Webcam', 'ID', WebCamID);
     IniFile.WriteString('Webcam', 'Resolution', IWebcamResolution[WebcamResolution]);
@@ -2200,7 +2312,7 @@ begin
     IniFile.WriteString('Webcam', 'Saturation', IWebcamSaturation[WebcamSaturation]);
     IniFile.WriteString('Webcam', 'Hue', IWebcamHue[WebcamHue]);
     IniFile.WriteInteger('Webcam', 'Effect', WebcamEffect);
-
+  finally
     IniFile.Free;
   end;
 
@@ -2209,15 +2321,12 @@ end;
 procedure TIni.SaveNumberOfPlayers;
 var
   IniFile: TIniFile;
-  I: integer;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveNumberOfPlayers');
+  try
     // Players
     IniFile.WriteString('Game', 'Players', IPlayers[Players]);
-
+  finally
     IniFile.Free;
   end;
 end;
@@ -2225,15 +2334,12 @@ end;
 procedure TIni.SaveSingTimebarMode;
 var
   IniFile: TIniFile;
-  I: integer;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveSingTimebarMode');
+  try
     // Players
     IniFile.WriteString('Advanced', 'SingTimebarMode', ISingTimebarMode[SingTimebarMode]);
-
+  finally
     IniFile.Free;
   end;
 end;
@@ -2241,15 +2347,12 @@ end;
 procedure TIni.SaveJukeboxTimebarMode;
 var
   IniFile: TIniFile;
-  I: integer;
 begin
-  if not Filename.IsReadOnly() then
-  begin
-    IniFile := TIniFile.Create(Filename.ToNative);
-
+  IniFile := TSafeIniFile.Create(Filename.ToNative, 'TIni.SaveJukeboxTimebarMode');
+  try
     // Players
     IniFile.WriteString('Advanced', 'JukeboxTimebarMode', IJukeboxTimebarMode[JukeboxTimebarMode]);
-
+  finally
     IniFile.Free;
   end;
 end;

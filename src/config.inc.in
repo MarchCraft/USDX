@@ -53,16 +53,11 @@
 
 
 {$@DEFINE_HAVE_PROJECTM@ HaveProjectM}
-{$@DEFINE_USE_LOCAL_PROJECTM_PRESETS@ UseLocalProjectMPresets}
 {$IF Defined(HaveProjectM) and Defined(IncludeConstants)}
-  {$IF Defined(UseLocalProjectMPresets)}
-    ProjectM_DataDir = 'visuals/projectM';
-  {$ELSE}
-    ProjectM_DataDir = '@libprojectM_DATADIR@';
-  {$IFEND}
   PROJECTM_VERSION_MAJOR   = @libprojectM_VERSION_MAJOR@;
   PROJECTM_VERSION_MINOR   = @libprojectM_VERSION_MINOR@;
   PROJECTM_VERSION_RELEASE = @libprojectM_VERSION_RELEASE@;
+  PROJECTM_VERSION_INT = @libprojectM_VERSION_INT@;
 {$IFEND}
 
 {$@DEFINE_HAVE_PORTAUDIO@ HavePortaudio}
@@ -76,6 +71,17 @@
 {$@DEFINE_HAVE_PORTMIDI@ UsePortMidi}
 {$IF Defined(UsePortMidi)}
   {$DEFINE UseMIDIPort}
+{$IFEND}
+{$@DEFINE_HAVE_MIDI_EMU@ UseMidiEmu}
+{$IF Defined(UseMidiEmu)}
+  {$DEFINE UseMidiEmu}
+  // Ensure the midi unit block is compiled so the emulation unit is included
+  {$DEFINE UseMIDIPort}
+  // When MidiEmu is enabled we want to avoid compiling other midi backends
+  // to prevent accidental use of system synths or PortMidi. Undef those
+  // flags here so downstream conditional blocks stay disabled.
+  {$UNDEF UsePortMidi}
+  {$UNDEF UsePortTime}
 {$IFEND}
 {$@DEFINE_HAVE_PORTTIME@ UsePortTime}
 {$@DEFINE_HAVE_PORTTIME@ PortTime_in_@porttime_LIB_NAME@}

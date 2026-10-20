@@ -156,7 +156,7 @@ type
 
       function CreateVoiceStream(ChannelMap: integer; FormatInfo: TAudioFormatInfo): TAudioVoiceStream; override;
 
-      function GetMixer(): TAudioMixerStream; {$IFDEF HasInline}inline;{$ENDIF}
+      function GetMixer(): TAudioMixerStream;
       function GetAudioFormatInfo(): TAudioFormatInfo;
 
       procedure MixBuffers(DstBuffer, SrcBuffer: PByteArray; Size: cardinal; Volume: single); virtual;
@@ -453,7 +453,9 @@ var
   Mixer: TAudioMixerStream;
 begin
   // only paused streams are not flushed
-  if (Status = ssPaused) then
+  if Status = ssPlaying then
+    Exit
+  else if Status = ssPaused then
     NeedsRewind := false;
 
   // rewind if necessary. Cases that require no rewind are:
