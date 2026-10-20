@@ -352,6 +352,7 @@ begin
           Report := Report + BackTraceFunction(ExceptAddr);
           for I := 0 to ExceptFrameCount - 1 do
             Report := Report + LineEnding + BackTraceFunction(ExceptFrames[I]);
+          Log.LogError(Report, 'MainLoop');
           ShowMessage(Report);
           done := true;
         end
